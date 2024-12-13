@@ -1,0 +1,48 @@
+name: 构建容器
+
+on: [push]
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build, push, and deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set image name based on branch
+        id: set_image
+        run: |
+          REPO_NAME=$(basename $GITHUB_REPOSITORY)
+          BRANCH_NAME=${GITHUB_REF##*/}
+          IMAGE_NAME="$REPO_NAME-$BRANCH_NAME"
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
+      - name: Increment version
+        id: vars
+        run: |
+          NEW_VERSION=$(cat version.txt | awk -F. -v OFS=. '{$NF++;print}')
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
+          echo "${NEW_VERSION}" > version.txt
+
+      - uses: mr-smithers-excellent/docker-build-push@v6
+        name: Build & push Docker image to ghcr.io
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: ${{ env.NEW_VERSION }}, latest
+          dockerfile: Dockerfile
+          registry: ghcr.io
+          multiPlatform: true
+          # platform: linux/arm64
+          username: atticus6
+          password: ${{ secrets.TOKEN }}
+
+      - name: Commit version increment
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add version.txt
+          git commit -m "Increment version to ${{ env.NEW_VERSION }} in ${{ github.ref_name }}"
+          git push origin ${{ github.ref_name }}
