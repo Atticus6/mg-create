@@ -8,7 +8,7 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-RUN apk update && apk install -y \
+RUN apk update && apk add \
   libatk-bridge2.0-0 \
   libatk1.0-0 \
   libcups2 \
